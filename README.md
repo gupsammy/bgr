@@ -18,11 +18,10 @@ bgr cut photo.jpg --blur=2           # Soft feathered edges
 ## Installation
 
 ```bash
-cargo install bgr
-```
+# Install from GitHub
+cargo install --git https://github.com/gupsammy/bgr
 
-Or build from source:
-```bash
+# Or build from source
 git clone https://github.com/gupsammy/bgr
 cd bgr
 cargo install --path .
