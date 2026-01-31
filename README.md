@@ -23,7 +23,7 @@ cargo install bgr
 
 Or build from source:
 ```bash
-git clone https://github.com/samarthg/bgr
+git clone https://github.com/gupsammy/bgr
 cd bgr
 cargo install --path .
 ```
@@ -64,19 +64,17 @@ bgr trace input.jpg --dilate=50 --fill-holes  # Sticker-style
 
 ## Model Management
 
-Models are auto-downloaded to `~/.bgr/models/` on first use.
-
-```bash
-bgr models list                       # List available models
-bgr models download birefnet          # Pre-download a model
-```
+Models are auto-downloaded on first use to platform-specific directories:
+- **macOS**: `~/Library/Application Support/bgr/models/`
+- **Linux**: `~/.local/share/bgr/models/`
+- **Windows**: `%APPDATA%\bgr\models\`
 
 ### Available Models
 
 | Model | Size | Best For |
 |-------|------|----------|
 | `birefnet` | 176MB | Complex scenes, hair/fur |
-| `birefnet-lite` | 89MB | Faster, good quality |
+| `birefnet-lite` | 5MB | Faster, good for portraits |
 | `isnet` | 176MB | General purpose |
 | `u2net` | 176MB | Classic, reliable |
 | `rmbg` | 176MB | BRIA AI state-of-art |
@@ -87,7 +85,6 @@ bgr models download birefnet          # Pre-download a model
 
 ```bash
 BGR_MODEL_PATH=/path/to/model.onnx    # Custom model path
-BGR_MODELS_DIR=~/.bgr/models          # Models directory
 ```
 
 ### Custom ONNX Models
