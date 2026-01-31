@@ -1,13 +1,13 @@
 use image::{GrayImage, RgbImage, Rgba, RgbaImage};
 
-use crate::{OutlineError, OutlineResult};
+use crate::{BgrError, BgrResult};
 
 /// Compose an RGBA foreground image from an RGB image and a grayscale alpha matte.
-pub fn compose_foreground(rgb: &RgbImage, alpha: &GrayImage) -> OutlineResult<RgbaImage> {
+pub fn compose_foreground(rgb: &RgbImage, alpha: &GrayImage) -> BgrResult<RgbaImage> {
     let expected = rgb.dimensions();
     let found = alpha.dimensions();
     if expected != found {
-        return Err(OutlineError::AlphaMismatch { expected, found });
+        return Err(BgrError::AlphaMismatch { expected, found });
     }
 
     let (w, h) = rgb.dimensions();
@@ -55,7 +55,7 @@ mod tests {
 
                 let err = compose_foreground(&rgb, &alpha).unwrap_err();
                 match err {
-                    OutlineError::AlphaMismatch { expected, found } => {
+                    BgrError::AlphaMismatch { expected, found } => {
                         assert_eq!(expected, (4, 4));
                         assert_eq!(found, (2, 2));
                     }
@@ -70,7 +70,7 @@ mod tests {
 
                 let err = compose_foreground(&rgb, &alpha).unwrap_err();
                 match err {
-                    OutlineError::AlphaMismatch { expected, found } => {
+                    BgrError::AlphaMismatch { expected, found } => {
                         assert_eq!(expected, (2, 2));
                         assert_eq!(found, (4, 4));
                     }
@@ -204,7 +204,7 @@ mod tests {
                     let result = compose_foreground(&rgb, &alpha);
 
                     prop_assert!(result.is_err());
-                    if let Err(crate::OutlineError::AlphaMismatch { expected, found }) = result {
+                    if let Err(crate::BgrError::AlphaMismatch { expected, found }) = result {
                         prop_assert_eq!(expected, (rgb_w, rgb_h));
                         prop_assert_eq!(found, (alpha_w, alpha_h));
                     }

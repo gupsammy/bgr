@@ -1,19 +1,72 @@
 use std::path::{Path, PathBuf};
 
-use outline::{MaskProcessingOptions, Outline};
+use bgr::models::{ModelPreset, default_models_dir, download_model_sync, resolve_model_path};
+use bgr::{Bgr, BgrResult, MaskProcessingOptions};
 
 use crate::cli::{
     AlphaFromArg, BinaryOption, GlobalOptions, MaskExportSource, MaskProcessingArgs, MaskSourceArg,
 };
 
-/// The convenience function to build an Outline instance with the input global and mask processing options.
-pub fn build_outline(global: &GlobalOptions, mask_args: &MaskProcessingArgs) -> Outline {
+/// Build a Bgr instance with the input global and mask processing options.
+/// Resolves model presets and downloads if necessary.
+pub fn build_bgr(global: &GlobalOptions, mask_args: &MaskProcessingArgs) -> BgrResult<Bgr> {
+    let models_dir = default_models_dir();
+
+    // First check if it's a preset and needs downloading
+    if let Some(preset) = ModelPreset::from_str(&global.model) {
+        let model_path = preset.local_path(&models_dir);
+        if !model_path.exists() {
+            eprintln!(
+                "Downloading model: {} ({} MB)...",
+                preset.name(),
+                preset.size_mb()
+            );
+            download_model_with_progress(preset, &models_dir)?;
+            eprintln!("Download complete!");
+        }
+    }
+
+    // Now resolve the path (will find the downloaded file or use as-is if it's a path)
+    let model_path = resolve_model_path(&global.model, &models_dir, false)?;
+
     let mask_processing = mask_args.into();
-    Outline::new(global.model.clone())
+    Ok(Bgr::new(model_path)
         .with_input_resize_filter(global.input_resample_filter.into())
         .with_output_resize_filter(global.output_resample_filter.into())
         .with_intra_threads(global.intra_threads)
-        .with_default_mask_processing(mask_processing)
+        .with_default_mask_processing(mask_processing))
+}
+
+/// Download a model with progress indication.
+fn download_model_with_progress(
+    preset: ModelPreset,
+    models_dir: &std::path::Path,
+) -> BgrResult<PathBuf> {
+    use indicatif::{ProgressBar, ProgressStyle};
+    use std::sync::Arc;
+
+    let pb = Arc::new(ProgressBar::new(0));
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+
+    let pb_clone = Arc::clone(&pb);
+    let result = download_model_sync(
+        preset,
+        models_dir,
+        Some(Box::new(move |downloaded, total| {
+            if total > 0 {
+                pb_clone.set_length(total);
+            }
+            pb_clone.set_position(downloaded);
+        })),
+    );
+
+    pb.finish_with_message("done");
+    result.map_err(|e| e.into())
 }
 
 /// Derive a variant file path by appending a suffix before the extension.

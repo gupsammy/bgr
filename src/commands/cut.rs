@@ -1,16 +1,16 @@
-use outline::{MaskHandle, MatteHandle, OutlineResult};
+use bgr::{BgrResult, MaskHandle, MatteHandle};
 
 use crate::cli::{AlphaFromArg, CutCommand, GlobalOptions};
 
 use super::utils::{
-    build_outline, derive_variant_path, processing_requested, resolve_alpha_source,
+    build_bgr, derive_variant_path, processing_requested, resolve_alpha_source,
     resolve_export_path, warn_if_soft_conflict,
 };
 
 /// The main function to run the cut command.
-pub fn run(global: &GlobalOptions, cmd: CutCommand) -> OutlineResult<()> {
-    let outline = build_outline(global, &cmd.mask_processing);
-    let session = outline.for_image(&cmd.input)?;
+pub fn run(global: &GlobalOptions, cmd: CutCommand) -> BgrResult<()> {
+    let bgr = build_bgr(global, &cmd.mask_processing)?;
+    let session = bgr.for_image(&cmd.input)?;
     let matte = session.matte();
     let output_path = cmd
         .output
@@ -31,7 +31,7 @@ pub fn run(global: &GlobalOptions, cmd: CutCommand) -> OutlineResult<()> {
         warn_if_soft_conflict(&cmd.mask_processing, "processed output");
     }
 
-    let mut ensure_processed = |matte: &MatteHandle| -> OutlineResult<MaskHandle> {
+    let mut ensure_processed = |matte: &MatteHandle| -> BgrResult<MaskHandle> {
         if let Some(mask) = &processed_mask {
             Ok(mask.clone())
         } else {

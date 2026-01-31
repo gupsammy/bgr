@@ -3,7 +3,7 @@ use visioncortex::PathSimplifyMode;
 use vtracer::{ColorImage, ColorMode, Config, Hierarchical, SvgFile, convert};
 
 use crate::mask::gray_to_color_image_rgba;
-use crate::{OutlineError, OutlineResult};
+use crate::{BgrError, BgrResult};
 
 use super::MaskVectorizer;
 
@@ -57,23 +57,20 @@ impl MaskVectorizer for VtracerSvgVectorizer {
     type Options = TraceOptions;
     type Output = String;
 
-    fn vectorize(&self, mask: &GrayImage, options: &Self::Options) -> OutlineResult<Self::Output> {
+    fn vectorize(&self, mask: &GrayImage, options: &Self::Options) -> BgrResult<Self::Output> {
         trace_to_svg_string(mask, options)
     }
 }
 
 /// The helper function that uses VTracer to trace a grayscale mask to an SVG string.
-pub fn trace_to_svg_string(
-    mask_image: &GrayImage,
-    options: &TraceOptions,
-) -> OutlineResult<String> {
+pub fn trace_to_svg_string(mask_image: &GrayImage, options: &TraceOptions) -> BgrResult<String> {
     let color_img = gray_to_color_image_rgba(mask_image, None, options.invert_svg);
     let svg_file = trace(color_img, options)?;
     Ok(svg_file.to_string())
 }
 
 /// Trace a ColorImage into an SVG using VTracer with the given options.
-pub fn trace(img: ColorImage, options: &TraceOptions) -> OutlineResult<SvgFile> {
+pub fn trace(img: ColorImage, options: &TraceOptions) -> BgrResult<SvgFile> {
     let cfg = Config {
         color_mode: options.tracer_color_mode.clone(),
         hierarchical: options.tracer_hierarchical.clone(),
@@ -88,6 +85,6 @@ pub fn trace(img: ColorImage, options: &TraceOptions) -> OutlineResult<SvgFile> 
         path_precision: options.tracer_path_precision,
     };
 
-    let svg_file = convert(img, cfg).map_err(OutlineError::Trace)?;
+    let svg_file = convert(img, cfg).map_err(BgrError::Trace)?;
     Ok(svg_file)
 }

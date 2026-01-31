@@ -1,10 +1,10 @@
 mod cli;
 mod commands;
 
+use bgr::BgrResult;
 use clap::Parser;
-use outline::OutlineResult;
 
-fn main() -> OutlineResult<()> {
+fn main() -> BgrResult<()> {
     let cli = cli::Cli::parse();
     commands::run(cli)
 }

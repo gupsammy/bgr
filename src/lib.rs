@@ -1,10 +1,29 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
+//! # bgr - Background Removal Library
+//!
+//! Fast, high-quality background removal powered by AI models.
+//!
+//! This library provides the core functionality for the `bgr` CLI tool,
+//! enabling background removal from images using ONNX neural network models.
+//!
+//! ## Quick Start
+//!
+//! ```no_run
+//! use bgr::Bgr;
+//!
+//! let bgr = Bgr::new("model.onnx");
+//! let session = bgr.for_image("input.jpg")?;
+//! let foreground = session.matte().foreground()?;
+//! foreground.save("output.png")?;
+//! # Ok::<_, bgr::BgrError>(())
+//! ```
 
 mod config;
 mod error;
 mod foreground;
 mod inference;
 mod mask;
+pub mod models;
 mod vectorizer;
 
 #[doc(inline)]
@@ -12,7 +31,12 @@ pub use crate::config::{
     DEFAULT_MODEL_PATH, ENV_MODEL_PATH, InferenceSettings, MaskProcessingOptions,
 };
 #[doc(inline)]
-pub use crate::error::{OutlineError, OutlineResult};
+pub use crate::error::{BgrError, BgrResult};
+// Re-export old names for compatibility
+#[doc(hidden)]
+pub use crate::error::BgrError as OutlineError;
+#[doc(hidden)]
+pub use crate::error::BgrResult as OutlineResult;
 pub use vectorizer::MaskVectorizer;
 
 #[cfg(feature = "vectorizer-vtracer")]
@@ -31,20 +55,24 @@ use crate::foreground::compose_foreground;
 use crate::inference::run_matte_pipeline;
 use crate::mask::{MaskOperation, apply_operations, operations_from_options};
 
-/// Entry point for configuring and running background matting inference.
+/// Entry point for configuring and running background removal inference.
 ///
 /// This is the main interface for loading an ONNX model and processing images to extract
 /// foreground subjects. Configure model path, inference settings, and default mask processing
-/// options, then call [`for_image`](Outline::for_image) to run inference on individual images.
+/// options, then call [`for_image`](Bgr::for_image) to run inference on individual images.
 #[derive(Debug, Clone)]
-pub struct Outline {
+pub struct Bgr {
     /// Inference settings for model and image handling.
     settings: InferenceSettings,
     /// If nothing is specified and processing is requested, these options will be used.
     default_mask_processing: MaskProcessingOptions,
 }
 
-impl Outline {
+// Type alias for backwards compatibility
+#[doc(hidden)]
+pub type Outline = Bgr;
+
+impl Bgr {
     pub fn new(model_path: impl Into<PathBuf>) -> Self {
         Self {
             settings: InferenceSettings::new(model_path),
@@ -52,7 +80,7 @@ impl Outline {
         }
     }
 
-    /// Construct Outline using env var `ENV_MODEL_PATH` or fallback to `DEFAULT_MODEL_PATH`.
+    /// Construct Bgr using env var `ENV_MODEL_PATH` or fallback to `DEFAULT_MODEL_PATH`.
     pub fn from_env_or_default() -> Self {
         let resolved = std::env::var_os(ENV_MODEL_PATH)
             .map(PathBuf::from)
@@ -60,12 +88,12 @@ impl Outline {
         Self::new(resolved)
     }
 
-    /// Try constructing Outline strictly from env var; returns error if not set.
-    pub fn try_from_env() -> OutlineResult<Self> {
+    /// Try constructing Bgr strictly from env var; returns error if not set.
+    pub fn try_from_env() -> BgrResult<Self> {
         if let Some(from_env) = std::env::var_os(ENV_MODEL_PATH) {
             return Ok(Self::new(PathBuf::from(from_env)));
         }
-        Err(OutlineError::Io(std::io::Error::new(
+        Err(BgrError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!(
                 "Model path not specified in env {}; set the variable to proceed",
@@ -105,7 +133,7 @@ impl Outline {
 
     /// Run the inference pipeline for a single image, returning the orginal image, raw matte, and processing options,
     /// wrapped in an `InferencedMatte`.
-    pub fn for_image(&self, image_path: impl AsRef<Path>) -> OutlineResult<InferencedMatte> {
+    pub fn for_image(&self, image_path: impl AsRef<Path>) -> BgrResult<InferencedMatte> {
         let (rgb, matte) = run_matte_pipeline(&self.settings, image_path.as_ref())?;
         Ok(InferencedMatte::new(
             rgb,
@@ -117,14 +145,14 @@ impl Outline {
 
 /// Inference result containing the original RGB image and raw matte prediction.
 ///
-/// Returned by [`Outline::for_image`] after running model inference.
+/// Returned by [`Bgr::for_image`] after running model inference.
 ///
 /// # Example
 /// ```no_run
-/// use outline::Outline;
+/// use bgr::Bgr;
 ///
-/// let outline = Outline::new("model.onnx");
-/// let session = outline.for_image("input.jpg")?;
+/// let bgr = Bgr::new("model.onnx");
+/// let session = bgr.for_image("input.jpg")?;
 ///
 /// // Access the original image and raw matte directly
 /// let rgb = session.rgb_image();
@@ -132,7 +160,7 @@ impl Outline {
 ///
 /// // Begin building a processing pipeline
 /// let matte = session.matte();
-/// # Ok::<_, outline::OutlineError>(())
+/// # Ok::<_, bgr::BgrError>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct InferencedMatte {
@@ -180,10 +208,10 @@ impl InferencedMatte {
 ///
 /// # Example
 /// ```no_run
-/// use outline::Outline;
+/// use bgr::Bgr;
 ///
-/// let outline = Outline::new("model.onnx");
-/// let session = outline.for_image("input.jpg")?;
+/// let bgr = Bgr::new("model.onnx");
+/// let session = bgr.for_image("input.jpg")?;
 ///
 /// // Chain operations and execute them
 /// let mask = session.matte()
@@ -193,7 +221,7 @@ impl InferencedMatte {
 ///     .processed()?;           // Execute operations
 ///
 /// mask.save("mask.png")?;
-/// # Ok::<_, outline::OutlineError>(())
+/// # Ok::<_, bgr::BgrError>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct MatteHandle {
@@ -215,7 +243,7 @@ impl MatteHandle {
     }
 
     /// Save the raw grayscale matte to the specified path.
-    pub fn save(&self, path: impl AsRef<Path>) -> OutlineResult<()> {
+    pub fn save(&self, path: impl AsRef<Path>) -> BgrResult<()> {
         self.raw_matte.as_ref().save(path)?;
         Ok(())
     }
@@ -276,12 +304,12 @@ impl MatteHandle {
     }
 
     /// Process the raw matte with the accumulated operations and default options.
-    pub fn processed(self) -> OutlineResult<MaskHandle> {
+    pub fn processed(self) -> BgrResult<MaskHandle> {
         self.process_with_options(None)
     }
 
     /// Process the raw matte with the accumulated operations and custom options.
-    pub fn processed_with(self, options: &MaskProcessingOptions) -> OutlineResult<MaskHandle> {
+    pub fn processed_with(self, options: &MaskProcessingOptions) -> BgrResult<MaskHandle> {
         self.process_with_options(Some(options))
     }
 
@@ -289,7 +317,7 @@ impl MatteHandle {
     fn process_with_options(
         mut self,
         options: Option<&MaskProcessingOptions>,
-    ) -> OutlineResult<MaskHandle> {
+    ) -> BgrResult<MaskHandle> {
         let mut ops = std::mem::take(&mut self.operations);
         match options {
             Some(custom) => ops.extend(operations_from_options(custom)),
@@ -308,13 +336,13 @@ impl MatteHandle {
     }
 
     /// Compose the RGBA foreground image from the RGB image and the raw matte.
-    pub fn foreground(&self) -> OutlineResult<ForegroundHandle> {
+    pub fn foreground(&self) -> BgrResult<ForegroundHandle> {
         let rgba = compose_foreground(self.rgb_image.as_ref(), self.raw_matte.as_ref())?;
         Ok(ForegroundHandle { image: rgba })
     }
 
     /// Trace the raw matte using the specified vectorizer and options.
-    pub fn trace<V>(&self, vectorizer: &V, options: &V::Options) -> OutlineResult<V::Output>
+    pub fn trace<V>(&self, vectorizer: &V, options: &V::Options) -> BgrResult<V::Output>
     where
         V: MaskVectorizer,
     {
@@ -329,10 +357,10 @@ impl MatteHandle {
 ///
 /// # Example
 /// ```no_run
-/// use outline::{Outline, VtracerSvgVectorizer, TraceOptions};
+/// use bgr::{Bgr, VtracerSvgVectorizer, TraceOptions};
 ///
-/// let outline = Outline::new("model.onnx");
-/// let session = outline.for_image("input.jpg")?;
+/// let bgr = Bgr::new("model.onnx");
+/// let session = bgr.for_image("input.jpg")?;
 /// let mask = session.matte().blur().threshold().processed()?;
 ///
 /// // Generate multiple outputs from the mask
@@ -342,7 +370,7 @@ impl MatteHandle {
 /// let vectorizer = VtracerSvgVectorizer;
 /// let svg = mask.trace(&vectorizer, &TraceOptions::default())?;
 /// std::fs::write("outline.svg", svg)?;
-/// # Ok::<_, outline::OutlineError>(())
+/// # Ok::<_, bgr::BgrError>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct MaskHandle {
@@ -382,7 +410,7 @@ impl MaskHandle {
     }
 
     /// Save the mask to the specified path.
-    pub fn save(&self, path: impl AsRef<Path>) -> OutlineResult<()> {
+    pub fn save(&self, path: impl AsRef<Path>) -> BgrResult<()> {
         self.mask.save(path)?;
         Ok(())
     }
@@ -443,12 +471,12 @@ impl MaskHandle {
     }
 
     /// Process the mask with the accumulated operations and default options.
-    pub fn processed(self) -> OutlineResult<MaskHandle> {
+    pub fn processed(self) -> BgrResult<MaskHandle> {
         self.process_with_options(None)
     }
 
     /// Process the mask with the accumulated operations and custom options.
-    pub fn processed_with(self, options: &MaskProcessingOptions) -> OutlineResult<MaskHandle> {
+    pub fn processed_with(self, options: &MaskProcessingOptions) -> BgrResult<MaskHandle> {
         self.process_with_options(Some(options))
     }
 
@@ -456,7 +484,7 @@ impl MaskHandle {
     fn process_with_options(
         mut self,
         options: Option<&MaskProcessingOptions>,
-    ) -> OutlineResult<MaskHandle> {
+    ) -> BgrResult<MaskHandle> {
         let mut ops = std::mem::take(&mut self.operations);
         match options {
             Some(custom) => ops.extend(operations_from_options(custom)),
@@ -475,13 +503,13 @@ impl MaskHandle {
     }
 
     /// Compose the RGBA foreground image from the RGB image and the current mask.
-    pub fn foreground(&self) -> OutlineResult<ForegroundHandle> {
+    pub fn foreground(&self) -> BgrResult<ForegroundHandle> {
         let rgba = compose_foreground(self.rgb_image.as_ref(), &self.mask)?;
         Ok(ForegroundHandle { image: rgba })
     }
 
     /// Trace the current mask using the specified vectorizer and options.
-    pub fn trace<V>(&self, vectorizer: &V, options: &V::Options) -> OutlineResult<V::Output>
+    pub fn trace<V>(&self, vectorizer: &V, options: &V::Options) -> BgrResult<V::Output>
     where
         V: MaskVectorizer,
     {
@@ -497,10 +525,10 @@ impl MaskHandle {
 ///
 /// # Example
 /// ```no_run
-/// use outline::Outline;
+/// use bgr::Bgr;
 ///
-/// let outline = Outline::new("model.onnx");
-/// let session = outline.for_image("input.jpg")?;
+/// let bgr = Bgr::new("model.onnx");
+/// let session = bgr.for_image("input.jpg")?;
 ///
 /// // Soft edges from raw matte
 /// let soft = session.matte().foreground()?;
@@ -513,7 +541,7 @@ impl MaskHandle {
 ///     .processed()?
 ///     .foreground()?;
 /// hard.save("hard-cutout.png")?;
-/// # Ok::<_, outline::OutlineError>(())
+/// # Ok::<_, bgr::BgrError>(())
 /// ```
 pub struct ForegroundHandle {
     image: RgbaImage,
@@ -531,7 +559,7 @@ impl ForegroundHandle {
     }
 
     /// Save the RGBA foreground image to the specified path.
-    pub fn save(&self, path: impl AsRef<Path>) -> OutlineResult<()> {
+    pub fn save(&self, path: impl AsRef<Path>) -> BgrResult<()> {
         self.image.save(path)?;
         Ok(())
     }

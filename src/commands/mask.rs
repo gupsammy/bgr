@@ -1,18 +1,18 @@
-use outline::OutlineResult;
+use bgr::BgrResult;
 
 use crate::cli::{GlobalOptions, MaskCommand, MaskExportSource};
 
 use super::utils::{
-    build_outline, derive_variant_path, processing_requested, resolve_mask_export_source,
+    build_bgr, derive_variant_path, processing_requested, resolve_mask_export_source,
     warn_if_soft_conflict,
 };
 
 // Resolved by helper in utils now.
 
 /// The main function to run the mask command.
-pub fn run(global: &GlobalOptions, cmd: MaskCommand) -> OutlineResult<()> {
-    let outline = build_outline(global, &cmd.mask_processing);
-    let session = outline.for_image(&cmd.input)?;
+pub fn run(global: &GlobalOptions, cmd: MaskCommand) -> BgrResult<()> {
+    let bgr = build_bgr(global, &cmd.mask_processing)?;
+    let session = bgr.for_image(&cmd.input)?;
     let matte = session.matte();
     let mask_source =
         resolve_mask_export_source(cmd.mask_source, processing_requested(&cmd.mask_processing));

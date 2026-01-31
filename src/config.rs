@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use image::imageops::FilterType;
 
 /// Environment variable name for specifying the model path.
-pub const ENV_MODEL_PATH: &str = "OUTLINE_MODEL_PATH";
+pub const ENV_MODEL_PATH: &str = "BGR_MODEL_PATH";
 
 /// Default model path used when no explicit path is provided.
 pub const DEFAULT_MODEL_PATH: &str = "model.onnx";
@@ -58,7 +58,7 @@ impl InferenceSettings {
 /// Configuration for mask post-processing operations.
 ///
 /// Defines the pipeline of blur, threshold, dilation, and hole-filling operations applied
-/// to raw mattes. Used as defaults in [`Outline`](crate::Outline) and can be overridden
+/// to raw mattes. Used as defaults in [`Bgr`](crate::Bgr) and can be overridden
 /// per operation via [`MatteHandle`](crate::MatteHandle) and [`MaskHandle`](crate::MaskHandle).
 ///
 /// # Explicit Configuration

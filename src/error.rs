@@ -1,14 +1,14 @@
 use thiserror::Error;
 
-/// Result type alias for operations that may fail with [`OutlineError`].
-pub type OutlineResult<T> = std::result::Result<T, OutlineError>;
+/// Result type alias for operations that may fail with [`BgrError`].
+pub type BgrResult<T> = std::result::Result<T, BgrError>;
 
-/// Error types that can occur during outline processing.
+/// Error types that can occur during background removal operations.
 ///
 /// This enum covers errors from model inference, image I/O, mask processing,
 /// and vectorization operations.
 #[derive(Debug, Error)]
-pub enum OutlineError {
+pub enum BgrError {
     /// ONNX Runtime inference error.
     #[error("ONNX Runtime error: {0}")]
     Ort(#[from] ort::Error),
@@ -30,4 +30,7 @@ pub enum OutlineError {
         expected: (u32, u32),
         found: (u32, u32),
     },
+    /// Model-related error (not found, download failed, etc.)
+    #[error("{0}")]
+    Model(#[from] crate::models::ModelError),
 }

@@ -1,18 +1,22 @@
 [package]
-name = "outline-core"
+name = "bgr"
 version = "0.1.0"
 edition = "2024"
-repository = "https://github.com/wyh2001/outline"
+repository = "https://github.com/samarthg/bgr"
 license = "MIT"
-description = "Image background removal with flexible mask processing options"
+description = "Fast, high-quality background removal CLI powered by AI models"
+readme = "README.md"
+keywords = ["background-removal", "image-processing", "ai", "cli", "onnx"]
+categories = ["command-line-utilities", "multimedia::images"]
 
 [features]
 default = ["cli"]
-cli = ["clap", "vectorizer-vtracer"]
+cli = ["clap", "clap_complete", "vectorizer-vtracer", "indicatif", "tokio", "reqwest", "directories"]
 vectorizer-vtracer = ["dep:vtracer", "dep:visioncortex"]
+server = ["axum", "tower-http"]
 
 [lib]
-name = "outline"
+name = "bgr"
 path = "src/lib.rs"
 
 [package.metadata.docs.rs]
@@ -28,9 +32,20 @@ visioncortex = { version = "0.8.9", optional = true }
 imageproc = "0.25.0"
 thiserror = "2"
 clap = { version = "4", features = ["derive", "env"], optional = true }
+clap_complete = { version = "4", optional = true }
+indicatif = { version = "0.17", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+reqwest = { version = "0.12", features = ["stream"], optional = true }
+directories = { version = "5", optional = true }
+axum = { version = "0.7", optional = true }
+tower-http = { version = "0.5", features = ["cors"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures-util = "0.3"
+dirs = "5"
 
 [[bin]]
-name = "outline"
+name = "bgr"
 path = "src/main.rs"
 required-features = ["cli"]
 

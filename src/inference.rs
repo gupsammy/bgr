@@ -10,7 +10,7 @@ use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Tensor;
 
 use crate::config::InferenceSettings;
-use crate::error::OutlineResult;
+use crate::error::BgrResult;
 use crate::mask::array_to_gray_image;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,7 +99,7 @@ fn positive_dim_to_usize(dim: i64) -> Option<usize> {
 }
 
 /// Load an RGB image from the given path, applying orientation from EXIF data.
-fn load_rgb_with_orientation(path: &Path) -> OutlineResult<RgbImage> {
+fn load_rgb_with_orientation(path: &Path) -> BgrResult<RgbImage> {
     let mut decoder = ImageReader::open(path)?.into_decoder()?;
     let orientation = decoder.orientation()?;
     let mut image = DynamicImage::from_decoder(decoder)?;
@@ -112,7 +112,7 @@ pub fn preprocess_image_to_tensor(
     rgb: &RgbImage,
     filter: FilterType,
     spec: ModelInputSpec,
-) -> OutlineResult<Tensor<f32>> {
+) -> BgrResult<Tensor<f32>> {
     let target_w = u32::try_from(spec.width).map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -168,7 +168,7 @@ pub fn preprocess_image_to_tensor(
 }
 
 /// Remove singleton axes to get the raw H×W matte from the model output.
-pub fn extract_matte_hw(matte: ArrayViewD<f32>) -> OutlineResult<Array2<f32>> {
+pub fn extract_matte_hw(matte: ArrayViewD<f32>) -> BgrResult<Array2<f32>> {
     let original_shape: Vec<usize> = matte.shape().to_vec();
     let mut view = matte;
 
@@ -194,7 +194,7 @@ pub fn resize_matte(
     target_w: u32,
     target_h: u32,
     filter: FilterType,
-) -> OutlineResult<Array2<f32>> {
+) -> BgrResult<Array2<f32>> {
     let src_w = matte.shape()[1] as u32;
     let src_h = matte.shape()[0] as u32;
     let mut buffer = ImageBuffer::<Luma<f32>, Vec<f32>>::new(src_w, src_h);
@@ -215,7 +215,7 @@ pub fn resize_matte(
 pub fn run_matte_pipeline(
     settings: &InferenceSettings,
     image_path: &Path,
-) -> OutlineResult<(RgbImage, GrayImage)> {
+) -> BgrResult<(RgbImage, GrayImage)> {
     let mut builder =
         Session::builder()?.with_optimization_level(GraphOptimizationLevel::Level3)?;
     if let Some(n) = settings.intra_threads {

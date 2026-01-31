@@ -1,14 +1,19 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
+use bgr::{MaskProcessingOptions, TraceOptions};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use image::imageops::FilterType;
-use outline::{MaskProcessingOptions, TraceOptions};
 use visioncortex::PathSimplifyMode;
 use vtracer::{ColorMode, Hierarchical};
 
 /// Command line interface definition.
 #[derive(Parser, Debug)]
-#[command(author, version, about, propagate_version = true)]
+#[command(
+    author,
+    version,
+    about = "Fast, high-quality background removal CLI powered by AI models",
+    propagate_version = true
+)]
 pub struct Cli {
     #[command(flatten)]
     pub global: GlobalOptions,
@@ -19,16 +24,15 @@ pub struct Cli {
 
 #[derive(Args, Debug)]
 pub struct GlobalOptions {
-    /// ONNX model path
+    /// Model name or path. Use preset names (birefnet, isnet, u2net, rmbg) or a path to an ONNX file.
     #[arg(
         short = 'm',
         long,
         global = true,
-        env = outline::ENV_MODEL_PATH,
-        value_hint = ValueHint::FilePath,
-        default_value = outline::DEFAULT_MODEL_PATH
+        env = bgr::ENV_MODEL_PATH,
+        default_value = "birefnet"
     )]
-    pub model: PathBuf,
+    pub model: String,
     /// Intra-op thread count for ORT (None to let ORT decide)
     #[arg(long, global = true)]
     pub intra_threads: Option<usize>,
